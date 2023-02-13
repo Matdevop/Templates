@@ -1,0 +1,70 @@
+# build an ec2 instence
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Deploy a basisc ec2 instence in a default VPC in us-west1 region"
+
+Parameters: # Adding new section
+  MatWorkInstanceType: # Name the Parameter
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t3.micro
+      - m1.small
+      - m1.large
+    Description: Enter t2.micro,t3.micro, m1.small, or m1.large. Default is t2.micro.
+  MatNetworkStack: 
+    Type: String
+    Description: Here referencing Network from SampleNetworkCrossStack
+    Default: SampleNetWorkCrossStack
+  KeyName: 
+    Type: "AWS::EC2::KeyPair::KeyName"
+
+
+Mappings: 
+  RegionMap: 
+    us-east-1: 
+      "HVM64": "ami-0b0dcb5067f052a63"
+    us-east-2:
+      "HVM64": "ami-0a606d8395a538502"
+    us-west-1: 
+      "HVM64": "ami-0f5e8a042c8bfcd5e"
+    us-west-2: 
+      "HVM64": "ami-094125af156557ca2"
+  
+
+Resources: # mandatory section
+  MatWorkEc2: # logical name
+    Type: AWS::EC2::Instance
+    Properties: 
+      InstanceType: !Ref MatWorkInstanceType
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref 'AWS::Region'
+        - HVM64
+      KeyName: !Ref KeyName
+      SecurityGroupIds: 
+        - !ImportValue SampleNetWorkCrossStack-SecurityGroupID
+          
+      SubnetId: !ImportValue SampleNetWorkCrossStack-SubnetID
+      UserData:
+       Fn::Base64: |
+                #!/bin/bash 
+                yum update -y
+                yum install -y httpd
+                systemctl start httpd
+                systemctl anable httpd
+                echo "Hello Team" > /var/www/html/index.html
+  MyEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MatWorkEc2                
+
+Outputs:
+  MatWorkEc2:
+    Description: This output will display the private ip address of the instance
+    Value: !GetAtt MatWorkEc2.PrivateIp
+  EC2PublicIP:
+    Description: This output will display the DNS address of the instance
+    Value: !GetAtt MatWorkEc2.PublicIp
+
+
